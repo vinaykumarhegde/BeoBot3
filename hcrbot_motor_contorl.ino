@@ -32,13 +32,11 @@
 volatile long lTicks;
 volatile long rTicks;
 
-// Clockwise rotation will increment ticks and 
-// anti clockwise will decrease the count
 void leftTicks(){
   if(digitalRead(L_ENC_OTHER))
-    lTicks++;
-  else
     lTicks--;
+  else
+    lTicks++;
 }
 
 // Clockwise rotation will increment ticks and 
@@ -56,38 +54,57 @@ void readPWMInput(int bytes){
     for(int i=0;i<4;i++)
       inArray[i] = Wire.read();
   }
+  else if(Wire.available() == 1){
+    // Reset command sent:
+    char c = Wire.read();
+    if(c == 'r'){
+      rTicks = 0;
+      return;
+    }
+    if(c == 'l'){
+      lTicks = 0;
+      return;
+    }
+    return;
+  }
   else{
 #ifdef LOGGING
   Serial.println("Incorrect I2C bytes sent");
 #endif
   }
-  int rPWM = (inArray[0]) | (inArray[1] << 8);
-  int lPWM = (inArray[2]) | (inArray[3] << 8);
+  int rPWM = (inArray[0]) + (int(inArray[1]) << 8);
+  int lPWM = (inArray[2]) + (int(inArray[3]) << 8);
 
   bool rDir = true;
-  bool lDir = true;
+  bool lDir = false;
 
+#ifdef LOGGING
+  Serial.print("R: ");
+  rDir?Serial.print("F "):Serial.print("B ");
+  Serial.print(rPWM,HEX);
+  Serial.print("\tL: ");
+  lDir?Serial.print("B "):Serial.print("F ");
+  Serial.print(lPWM,HEX);
+  Serial.println("");
+#endif  
   if(rPWM < 0){
     rPWM = -rPWM;
     rDir = false;
   }
   if(lPWM < 0){
     lPWM = -lPWM;
-    lDir = false;
+    lDir = true;
   }
 
-  // Set clock wise rotation if dir is true
   (rDir)? digitalWrite(R_DIR,LOW):digitalWrite(R_DIR,HIGH);
   if(rPWM > 255)
     rPWM = 255;
   analogWrite(R_PWM,uint8_t(rPWM));
   
-  // Set clock wise rotation if dir is true
   (lDir)? digitalWrite(L_DIR,LOW):digitalWrite(L_DIR,HIGH);
   if(lPWM > 255)
     lPWM = 255;
   analogWrite(L_PWM,uint8_t(lPWM));  
-  
 }
 
 void sendEncReadings(){
@@ -104,16 +121,16 @@ void sendEncReadings(){
   ticks[7] = (lTicks >> 24) & 0xFF;
 
 #ifdef LOGGING
-  Serial.print("Sending Encoder value: ");
+//  Serial.print("Sending Encoder value: ");
 //  for(int i=3; i>=0;i--)
 //    Serial.print(ticks[i],HEX);
 //  Serial.print("\t");
 //  for(int i=7; i>=4;i--)
 //    Serial.print(ticks[i],HEX);
 //  Serial.println(".");
-  Serial.print(rTicks);
-  Serial.print("\t");
-  Serial.println(lTicks);
+//  Serial.print(rTicks);
+//  Serial.print("\t");
+//  Serial.println(lTicks);
 #endif
 
   // Send 8 bytes of ticks data
