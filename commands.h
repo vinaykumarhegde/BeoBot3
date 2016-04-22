@@ -27,6 +27,9 @@
 #define PING           'p'
 #endif
 
+// URM04 Sensor command:
+#define URM04          'q'
+
 #endif
 
 
