@@ -109,7 +109,7 @@
   #include "diff_controller.h"
 
   /* Run the PID loop at 30 times per second */
-  #define PID_RATE           30     // Hz
+  #define PID_RATE           100     // Hz
 
   /* Convert the rate into an interval */
   const int PID_INTERVAL = 1000 / PID_RATE;
@@ -142,6 +142,10 @@ char argv2[16];
 // The arguments converted to integers
 long arg1;
 long arg2;
+
+// Variable for ROS compatibility
+bool ROSEnabled = true;
+
 
 /* Clear the current command parameters */
 void resetCommand() {
@@ -190,6 +194,15 @@ int runCommand() {
   case PING:
     Serial.println(Ping(arg1));
     break;
+
+//  case URM04:
+//    char dsfg = readURM();
+//    for(){
+//      Serial.write();
+//    } 
+//    Serial.print("\n");
+//    Serial.println("OK");
+//    break;
 #ifdef USE_SERVOS
   case SERVO_WRITE:
     servos[arg1].write(arg2);
@@ -244,6 +257,7 @@ int runCommand() {
 /* Setup function--runs once at startup. */
 void setup() {
   Serial.begin(BAUDRATE);
+  Serial1.begin(BAUDRATE);
 
 // Initialize the motor controller if used */
 #ifdef USE_BASE
@@ -268,7 +282,7 @@ void setup() {
     // enable PCINT1 and PCINT2 interrupt in the general interrupt mask
     PCICR |= (1 << PCIE1) | (1 << PCIE2);
   #elif defined DFRHCR_N1_ENCODER
-    Serial.println("Mega started...");
+    Serial.println("Master Arduino started...");
     Wire.begin();
   #endif
   initMotorController();
@@ -281,15 +295,62 @@ void setup() {
     servos[i].attach(servoPins[i]);
   }
 #endif
+  
 }
+
 
 /* Enter the main loop.  Read and parse input from the serial port
    and run any valid commands. Run a PID calculation at the target
    interval and check for auto-stop conditions.
 */
 void loop() {
-  while (Serial.available() > 0) {
-    
+  if(Serial1.available()){
+    bool ROSEnabled = false;
+    while(Serial1.available()){
+    // Read the next character
+    chr = Serial1.read();
+    Serial.print(chr);
+    // Terminate a command with a CR
+    if(chr == '!'){
+      // Enable the ROS functionality
+      ROSEnabled = true;
+    }
+    else if (chr == 13) {
+      if (arg == 1) argv1[index] = NULL;
+      else if (arg == 2) argv2[index] = NULL;
+      runCommand();
+      resetCommand();
+    }
+    // Use spaces to delimit parts of the command
+    else if (chr == ' ') {
+      // Step through the arguments
+      if (arg == 0) arg = 1;
+      else if (arg == 1)  {
+        argv1[index] = NULL;
+        arg = 2;
+        index = 0;
+      }
+      continue;
+    }
+    else {
+      if (arg == 0) {
+        // The first arg is the single-letter command
+        cmd = chr;
+      }
+      else if (arg == 1) {
+        // Subsequent arguments can be more than one character
+        argv1[index] = chr;
+        index++;
+      }
+      else if (arg == 2) {
+        argv2[index] = chr;
+        index++;
+      }
+    }    
+    }
+  }
+  
+  while (ROSEnabled && Serial.available() > 0) {
     // Read the next character
     chr = Serial.read();
 
