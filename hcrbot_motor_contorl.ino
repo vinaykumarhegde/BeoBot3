@@ -4,7 +4,8 @@
  */
 
 #include <Wire.h>
-#define LOGGING
+//#define LOGGING 1
+#undef LOGGING
 
 
 // Pins
@@ -16,6 +17,9 @@
 #define R_ENC_INT 2 // Int 0; Encode Pin B
 #define L_ENC_INT 3 // Int 1; Encoder Pin A
 #define L_ENC_OTHER 5 //Encode Pin B
+
+#define MINPWM 50 //Minimum PWM for the motor, below this static friction stops the motor from spinning
+#define STATICPULSEWIDTH 100 //Pulse time to avoid static friction in gears.
 
 // Buffers
 #define CMDBUFFER 10 // Command buffer.
@@ -99,11 +103,19 @@ void readPWMInput(int bytes){
   (rDir)? digitalWrite(R_DIR,LOW):digitalWrite(R_DIR,HIGH);
   if(rPWM > 255)
     rPWM = 255;
+  if(rPWM > 0 && rPWM < MINPWM){
+    analogWrite(R_PWM, uint8_t(MINPWM));
+    delay(STATICPULSEWIDTH);
+  }
   analogWrite(R_PWM,uint8_t(rPWM));
   
   (lDir)? digitalWrite(L_DIR,LOW):digitalWrite(L_DIR,HIGH);
   if(lPWM > 255)
     lPWM = 255;
+  if(lPWM > 0 && lPWM < MINPWM){
+    analogWrite(L_PWM, uint8_t(MINPWM));
+    delay(STATICPULSEWIDTH);
+  }
   analogWrite(L_PWM,uint8_t(lPWM));  
 }
 
