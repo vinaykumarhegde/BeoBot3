@@ -1,5 +1,5 @@
 #include "Arduino.h"
-#define printByte(args) Serial.write(args)
+//#define printByte(args) Serial.write(args)
 
 #define ADDSETCMDLEN 7 // Address Set Command Length
 #define ADDSETHSLEN 7 // Address Set Handshake Response Length
@@ -24,8 +24,11 @@ enum sensors {
 
 
 void clearRxBuffer(){
-  while(Serial.available())
-    Serial.read();
+  while(Serial.available()){
+    byte* received = new byte;
+    Serial.setTimeout(10);
+    size_t retv = Serial.readBytes(received,1);
+  }
 }
 
 bool valAddResp(byte received[], byte address){
@@ -77,9 +80,11 @@ class URM04Sensor{
     uint8_t cmdLen = 6; uint8_t respLen = 8;
     void _transmit(){// Transmits the contents of cmd[] array
       for(int i=0;i<cmdLen;++i){
-        printByte(cmd[i]);
+//        printByte(cmd[i]);
+        _ser->write(cmd[i]);
         cmd[cmdLen-1] += cmd[i];
       }
+      _ser->flush();
       for(int i=4;i<cmdLen;i++) cmd[i]=0;
     }
     bool _verify(){
@@ -103,8 +108,10 @@ class URM04Sensor{
       _add = add;cmd[2] = add;
     }
     void Init(){
+#ifdef DEBUG      
       _ser->print("Initialised URM04 sensor with address: ");
       _ser->println(_add,HEX);
+#endif      
     }
     void Trigger(){ // Triggers URM04 with address: _add;
       cmd[4] = 0x01;
@@ -122,9 +129,11 @@ class URM04Sensor{
       while(tryNo < maxTries){
         if(_ser->available() == respLen){ // Enough bytes are present in the rx buffer.
           received = new byte[respLen]; // Create a memory to store received bytes.
-          for(int i=0;i<respLen;++i) received[i] = _ser->read(); // Read the serial bytes
-          _ser->flush();
-          if(_verify()){ // Checksum and other headers are correct
+//          for(int i=0;i<respLen;++i) received[i] = _ser->read(); // Read the serial bytes
+//          _ser->flush();
+          _ser->setTimeout(1000);
+          size_t retv = _ser->readBytes(received,respLen);
+          if(retv && _verify()){ // Checksum and other headers are correct
             uint16_t dist = received[5]*256 + received[6];
 #ifdef DEBUG
             _ser->print("Distance sensed by URM04 at ");
